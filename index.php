@@ -1,6 +1,19 @@
 <?php
 setlocale(LC_ALL,'en_US.UTF-8');
 
+$tmp = realpath($_REQUEST['file']);
+if($tmp === false)
+	err(404,'File or Directory Not Found');
+if(substr($tmp, 0,strlen(__DIR__)) !== __DIR__)
+	err(403,"Forbidden");
+
+if(!$_COOKIE['_sfm_xsrf'])
+	setcookie('_sfm_xsrf',bin2hex(openssl_random_pseudo_bytes(16)));
+if($_POST) {
+	if($_COOKIE['_sfm_xsrf'] !== $_POST['xsrf'] || !$_POST['xsrf'])
+		err(403,"XSRF Failure");
+}
+
 $file = $_REQUEST['file'] ?: '.';
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
@@ -52,6 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 }
 
+function err($code,$msg) {
+	echo json_encode(array('error' => array('code'=>intval($code), 'msg' => $msg)));
+	exit;
+}
+
 ?>
 
 <html>
@@ -63,10 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 </head>
 <body>
 
+
+<ol class="breadcrumb"></ol>
+
 <table class="table table-striped" id = "table">
   <thead>
     <tr>
-	  <th>Name</th>
+	  <th>Name<span class="indicator glyphicon glyphicon-sort-by-attributes-alt" aria-hidden="true"></span></th>
 	  <th>Size</th>
 	  <th>Modified</th>
 	  <th id="misc">Actions</th>
@@ -90,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 			var direction = $(this).hasClass('sort_asc');
 			$table.tablesortby(idx,direction);
 		});
+		//Remove click from actions tab
 		$("#misc").off('click', null);
 		return this;
 	};
@@ -120,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 	}
 	$.fn.settablesortmarkers = function() {
 		this.find('thead th span.indicator').remove();
-		this.find('thead th.sort_asc').append('<span class="indicator">&darr;<span>');
-		this.find('thead th.sort_desc').append('<span class="indicator">&uarr;<span>');
+		this.find('thead th.sort_asc').append('<span class="indicator glyphicon glyphicon-sort-by-attributes-alt" aria-hidden="true"></span>');
+		this.find('thead th.sort_desc').append('<span class="indicator glyphicon glyphicon-sort-by-attributes" aria-hidden="true"></span>');
 		return this;
 	}
 })(jQuery);
@@ -135,7 +157,10 @@ $(function() {
     var hashval = window.location.hash.substr(1);
 		$.get('?',{'do':'list','file':hashval},function(data) {
 			if(data.success) {
-				$tbody.empty();
+				
+				$tbody.empty();			
+				$('.breadcrumb').empty().html(renderBreadcrumbs(hashval));
+
 				$.each(data.results,function(k,v){
 					$tbody.append(renderFileRow(v));
 				});				
@@ -172,10 +197,38 @@ $(function() {
 			.addClass(data.is_dir ? 'is_dir' : '')
 			.append( $('<td class="first" />').append($link) )
 			.append( $('<td/>').attr('data-sort',data.is_dir ? -1 : data.size)
-				.html($('<span class="size" />').text(data.size)) ) 
-			.append( $('<td/>').attr('data-sort',data.mtime).text(data.mtime) )
-			.append( $('<td/>').append(data.name).append( data.is_deleteable ? $delete_link : '') )
-		return $html;
+				.html($('<span class="size" />').text(formatFileSize(data.size))) ) 
+			.append( $('<td/>').attr('data-sort',data.mtime).text(formatTimestamp(data.mtime)) )
+			.append( $('<td/>').append(data.name).append( data.is_deleteable ? $delete_link : '') )		
+			return $html;
+	}
+
+	function formatTimestamp(unix_timestamp) {
+		var m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		var d = new Date(unix_timestamp*1000);
+		return [m[d.getMonth()],' ',d.getDate(),', ',d.getFullYear()," ",
+			(d.getHours() % 12 || 12),":",(d.getMinutes() < 10 ? '0' : '')+d.getMinutes(),
+			" ",d.getHours() >= 12 ? 'PM' : 'AM'].join('');
+	}
+	
+	function formatFileSize(bytes) {
+		var s = ['bytes', 'KB','MB','GB','TB','PB','EB'];
+		for(var pos = 0;bytes >= 1000; pos++,bytes /= 1024);
+		var d = Math.round(bytes*10);
+		return pos ? [parseInt(d/10),".",d%10," ",s[pos]].join('') : bytes + ' bytes';
+	}
+
+	function renderBreadcrumbs(path) {
+		var base = "";
+		$(".breadcrumb").append($('<li><a href="./">Home</a></li>'));
+
+		$.each(path.split('/'),function(k,v){
+			if(v) {
+				var tmpli = base+v;
+				$(".breadcrumb").append('<li><a href="#'+tmpli+'">'+v+'</a></li>')
+				base += v + '/';
+			}
+		});
 	}
 
 });
