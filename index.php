@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 					$dirResults = array();
 					$fileResults = array();
 					$files = array_diff(scandir($directory), array('.','..'));
-					foreach($files as $entry) if($entry !== basename(__FILE__)) { //__FILE__ is diabling this filemanager to scan for its self
+					foreach($files as $entry) if($entry !== basename(__FILE__)) { 
 						$i = $directory . '/' . $entry;
 						$stat = stat($i);
 						if(is_dir($i)) {
