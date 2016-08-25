@@ -229,6 +229,7 @@ $(function() {
 				base += v + '/';
 			}
 		});
+		$(".breadcrumb li:last").addClass("active").find('a').contents().unwrap();
 	}
 
 });
