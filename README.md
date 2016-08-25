@@ -1,5 +1,6 @@
 simple-file-manager
 ===================
+This is a fork of https://github.com/jcampbell1/simple-file-manager.
 
 A Simple PHP file manager.  The code is a single php file.  
 
